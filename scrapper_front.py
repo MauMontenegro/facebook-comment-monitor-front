@@ -58,7 +58,8 @@ st.markdown("""
 
 # ==== 🛠️ Autenticación con Google Sheets ====
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPE)
+
+creds = Credentials.from_service_account_info(st.secrets["google"], scopes=SCOPE)
 gc = gspread.authorize(creds)
 
 _,centered_header,_=st.columns([3,4,3])
