@@ -1,0 +1,207 @@
+import requests
+import streamlit as st
+import pandas as pd
+import gspread
+from google.oauth2.service_account import Credentials
+import logging
+
+logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
+
+server_url = 'https://facebook-comment-monitor.onrender.com/get/postid'
+
+# Configura página
+st.set_page_config(page_title="Red Petroil | Facebook Post Monitor", page_icon="images/petroil_logo_gota.jpg",layout="wide")
+
+# ==== 🎨 ESTILO PERSONALIZADO CSS ====
+st.markdown("""
+    <style>
+    body {
+        background-color: #ffffff;
+    }
+    .main {
+        background-color: #000000;
+    }
+    header {
+        background-color: #003366;
+    }
+    h1 {
+        color: #003366;
+    }
+            
+    .stButton > button {
+        background-color: #003366;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 16px;
+        border: none;
+        border-radius: 8px;
+        padding: 0.6em 1.4em;
+        height:auto;
+        padding:2px;
+        padding-left:5px;
+        padding-right:5px;        
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease-in-out;
+    }
+            
+    .stButton > button:hover {
+        background-color: #FFD700;
+        color: #003366;
+        box-shadow: 2px 2px 15px rgba(0, 0, 0, 0.3);
+        transform: scale(1.02);
+        cursor: pointer;
+    }
+    .stButton >
+    </style>
+""", unsafe_allow_html=True)
+
+# ==== 🛠️ Autenticación con Google Sheets ====
+SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPE)
+gc = gspread.authorize(creds)
+
+_,centered_header,_=st.columns([3,4,3])
+
+with centered_header:
+    # ==== 🧢 Cabecera ====
+    st.image("https://irp-cdn.multiscreensite.com/db564452/DESKTOP/jpg/780.jpg", width=250, use_container_width=False)
+    st.title("Monitor de Publicaciones")
+    st.markdown("**Red Petroil - Inteligencia de Marketing Digital**")
+    st.markdown("---")
+
+# ==== 📩 Entradas ====    
+_,centered_fields,_=st.columns([2,4,2])
+with centered_fields:
+    _,c1,c2,c3,_=st.columns([1,3,3,3,1])
+    with c1:    
+        post_id = st.text_input("🔵 ID del Post")
+    with c2:
+        sheet_name = st.text_input("📗 Proyecto Excel")
+    with c3: 
+        worksheet_name = st.text_input("📋 Hoja de Trabajo")
+
+# Inicializa session_state
+if "scraper_ready" not in st.session_state:
+    st.session_state.scraper_ready = False
+if "df_data" not in st.session_state:
+    st.session_state.df_data = None
+
+# Create a row with two buttons
+_,col_scrape, col_display,_ = st.columns([3.5,1.5,1.5,3.5])
+
+# Button to initiate scraping
+with col_scrape:
+    if st.button("🔄 Ejecutar Scraper"):
+        if post_id and sheet_name and worksheet_name:  
+            with st.spinner("⛽ Ejecutando el scraper..."):
+                try:
+                    # Prepare the request data for your FastAPI endpoint
+                    api_url = server_url                   
+                    
+                    # Create the request payload matching your ScrapRequest model
+                    payload = {
+                        "post_id": post_id,
+                        "sheet_name": sheet_name,
+                        "worksheet_name": worksheet_name
+                    }
+                    
+                    # Make a POST request to the API
+                    response = requests.post(api_url, json=payload, timeout=180)
+                    
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        st.success(response_data.get("response", ""))    
+                        
+                        # After successful scraping, automatically load the data
+                        if "Success" in response_data.get("response"):
+                            try:
+                                sh = gc.open(sheet_name)
+                                worksheet = sh.worksheet(worksheet_name)
+                                
+                                data = worksheet.get_all_records()
+                                for row in data:
+                                    row['user_id'] = str(row['user_id'])
+                                df = pd.DataFrame(data)
+                            
+                                st.session_state.scraper_ready = True
+                                st.session_state.df_data = df                            
+                            except Exception as e:
+                                import traceback
+                                st.error(f"❌ Error: {e}")
+                                print("🔴 Exception:", e, flush=True)
+                                traceback.print_exc()
+                                st.warning(f"✅ Scraper ejecutado, pero no se pudo cargar los datos: {e}")
+                    else:
+                        st.error(f"❌ Error del API: {response.status_code} - {response.text}")
+                except Exception as e:
+                    st.error(f"❌ Error al conectar con el scraper: {e}")
+        else:
+            st.warning("🔴 Por favor, completa la información de los campos.")
+
+# Button to display data from Google Sheets
+with col_display:
+    if st.button("📊 Mostrar Datos"):
+        if post_id and sheet_name and worksheet_name:  
+            with st.spinner("⛽ Cargando comentarios del post..."):
+                try:                   
+                    sh = gc.open(sheet_name)
+                    worksheet = sh.worksheet(worksheet_name)
+                    data = worksheet.get_all_records()
+                    for row in data:
+                        row['user_id'] = str(row['user_id'])
+                    df = pd.DataFrame(data)                
+                    # Guarda en session_state
+                    st.session_state.scraper_ready = True
+                    st.session_state.df_data = df
+                    st.success("✅ Comentarios cargados correctamente")
+                except Exception as e:
+                    st.error(f"❌ Error: {e}")
+        else:
+            st.warning("🔴 Por favor, completa la información de los campos.")
+
+# ==== Mostrar datos si ya se ejecutó el scraper ====
+if st.session_state.scraper_ready and st.session_state.df_data is not None:    
+    # Creamos dos columnas: una para el DataFrame y otra para la imagen
+    col1, col2 = st.columns([5, 5])
+    with col1:
+        st.subheader("📊 Comentarios del Post")
+        filter_button= st.checkbox("Comentarios con Imagenes")
+        if filter_button:
+            df = st.session_state.df_data
+            df = df[df['has_attachment'].str.lower()!='no']
+        else:
+            df = st.session_state.df_data    
+        event = st.dataframe(
+            df,
+            column_config={
+                "has_attachment": st.column_config.LinkColumn(
+                    "Imagen Asociada",
+                    help="Imagen Asociada al comentario",
+                    validate=r"^https://[a-z]+\.streamlit\.app$",
+                    max_chars=100,
+                    display_text=r"https://(.*?)\.streamlit\.app"
+                ),                
+            },
+            use_container_width=True,
+            hide_index=False,
+            on_select="rerun",
+            selection_mode="single-row",
+        )                   
+                        
+    with col2:
+        st.markdown("### Imagen del Post")
+        comment = event.selection.rows
+        if len(comment) == 1:
+            row = df.iloc[comment[0]]
+            attachment = row.get("has_attachment", "No")        
+            if isinstance(attachment, str) and attachment.strip().lower() != "no":  
+                # Contenedor con clase personalizada
+                st.markdown('<div class="custom-image-container">', unsafe_allow_html=True)
+                st.image(attachment.strip(), width=300)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    # Link a Google Sheets
+    sheet_id = gc.open(sheet_name).id
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit?usp=sharing"
+    st.markdown(f"🔗 [Abrir en Google Sheets]({sheet_url})", unsafe_allow_html=True)
