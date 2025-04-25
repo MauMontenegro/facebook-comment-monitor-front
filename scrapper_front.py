@@ -103,7 +103,7 @@ with col_scrape:
             with st.spinner("⛽ Ejecutando el scraper..."):
                 try:
                     # Prepare the request data for your FastAPI endpoint
-                    api_url = server_url                   
+                    api_url = scraper_url                  
                     
                     # Create the request payload matching your ScrapRequest model
                     payload = {
