@@ -4,11 +4,14 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 import logging
+import json
 
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
-server_url = 'https://facebook-comment-monitor.onrender.com/get/postid'
+scraper_url = st.secrets["api_endpoints"]["scraper_url"]
+ocr_url = st.secrets["api_endpoints"]["ocr_url"]
+
 
 # Configura página
 st.set_page_config(page_title="Red Petroil | Facebook Post Monitor", page_icon="images/petroil_logo_gota.jpg",layout="wide")
@@ -59,6 +62,8 @@ st.markdown("""
 # ==== 🛠️ Autenticación con Google Sheets ====
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
+#creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPE)
+# Below code is for hosting in streamlit code as it uses a project.toml secret handler
 creds = Credentials.from_service_account_info(st.secrets["google"], scopes=SCOPE)
 gc = gspread.authorize(creds)
 
@@ -89,7 +94,7 @@ if "df_data" not in st.session_state:
     st.session_state.df_data = None
 
 # Create a row with two buttons
-_,col_scrape, col_display,_ = st.columns([3.5,1.5,1.5,3.5])
+_,col_scrape, col_display,col_ocr,_ = st.columns([3.5,1.5,1.5,1.5,3.5])
 
 # Button to initiate scraping
 with col_scrape:
@@ -161,6 +166,48 @@ with col_display:
         else:
             st.warning("🔴 Por favor, completa la información de los campos.")
 
+
+required_fields = ["date", "address", "station", "total", "quantity"]
+with col_ocr:
+    if st.button("🔄 Ejecutar OCR"):
+        sh = gc.open(sheet_name)        
+        worksheet = sh.worksheet(worksheet_name)
+        headers=worksheet.row_values(1)
+        records = worksheet.get_all_records()
+        image_rows = [(i + 2, row) for i, row in enumerate(records) if row.get("has_attachment") and row["has_attachment"].strip().lower() != "no"]
+        if not image_rows:
+            st.info("No image attachments found in the sheet.")
+        else:
+            for row_index, row in image_rows:
+                image_url = row["has_attachment"]
+                comment = row.get("comment", "")
+
+                with st.container():                                       
+                    try:
+                        # Call OCR API
+                        resp = requests.post(ocr_url, json={"image_url": image_url})
+                        resp.raise_for_status()
+                        structured = resp.json().get("structured_text", {})
+
+                        updated = False
+                        for field in required_fields:
+                            if field not in headers:
+                                headers.append(field)
+                                updated = True
+
+                        if updated:
+                            worksheet.insert_row(headers, index=1)
+                        headers = worksheet.row_values(1)  # Refresh headers after any update
+                        # Update sheet
+                        for key in required_fields:
+                            if key in structured and key in headers:
+                                col_index = headers.index(key) + 1
+                                worksheet.update_cell(row_index, col_index, str(structured[key]))
+                        st.success(f"✅ Row {row_index} updated with OCR data.")
+                    except Exception as e:
+                        st.error(f"❌ Error processing image: {e}")
+
+
 # ==== Mostrar datos si ya se ejecutó el scraper ====
 if st.session_state.scraper_ready and st.session_state.df_data is not None:    
     # Creamos dos columnas: una para el DataFrame y otra para la imagen
@@ -174,7 +221,7 @@ if st.session_state.scraper_ready and st.session_state.df_data is not None:
         else:
             df = st.session_state.df_data    
         event = st.dataframe(
-            df,
+            df.astype(str),
             column_config={
                 "has_attachment": st.column_config.LinkColumn(
                     "Imagen Asociada",
