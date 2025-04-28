@@ -197,7 +197,7 @@ with col_ocr:
                                 updated = True
 
                         if updated:
-                            worksheet.insert_row(headers, index=1)
+                            worksheet.update('A1', [headers])
                         headers = worksheet.row_values(1)  # Refresh headers after any update
                         # Update sheet
                         for key in required_fields:
