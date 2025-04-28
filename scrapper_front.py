@@ -189,6 +189,7 @@ with col_ocr:
                         resp.raise_for_status()
                         structured = resp.json().get("structured_text", {})
 
+                        # Create Fields if Sheet is New
                         updated = False
                         for field in required_fields:
                             if field not in headers:
@@ -202,10 +203,10 @@ with col_ocr:
                         for key in required_fields:
                             if key in structured and key in headers:
                                 col_index = headers.index(key) + 1
-                                worksheet.update_cell(row_index, col_index, str(structured[key]))
-                        st.success(f"✅ Row {row_index} updated with OCR data.")
+                                worksheet.update_cell(row_index, col_index, str(structured[key]))            
                     except Exception as e:
                         st.error(f"❌ Error processing image: {e}")
+            st.success(f"✅ Sheet updated with OCR data.")
 
 
 # ==== Mostrar datos si ya se ejecutó el scraper ====
