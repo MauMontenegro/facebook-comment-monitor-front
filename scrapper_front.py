@@ -178,27 +178,29 @@ with col_ocr:
         if not image_rows:
             st.info("No image attachments found in the sheet.")
         else:
-            for row_index, row in image_rows:
-                image_url = row["has_attachment"]
-                comment = row.get("comment", "")
+            updated = False
+            for field in required_fields:
+                if field not in headers:
+                    headers.append(field)
+                    updated = True
+
+            if updated:
+                worksheet.update('A1', [headers])
+            
+            headers = worksheet.row_values(1)  # Refresh headers
+
+            progress_bar = st.progress(0)
+            total_images = len(image_rows)
+            for i,(row_index,row) in enumerate(image_rows):
+                image_url = row["has_attachment"]                
 
                 with st.container():                                       
                     try:
                         # Call OCR API
                         resp = requests.post(ocr_url, json={"image_url": image_url})
                         resp.raise_for_status()
-                        structured = resp.json().get("structured_text", {})
-
-                        # Create Fields if Sheet is New
-                        updated = False
-                        for field in required_fields:
-                            if field not in headers:
-                                headers.append(field)
-                                updated = True
-
-                        if updated:
-                            worksheet.update('A1', [headers])
-                        headers = worksheet.row_values(1)  # Refresh headers after any update
+                        structured = resp.json().get("structured_text", {})                       
+                       
                         # Update sheet
                         for key in required_fields:
                             if key in structured and key in headers:
@@ -206,6 +208,7 @@ with col_ocr:
                                 worksheet.update_cell(row_index, col_index, str(structured[key]))            
                     except Exception as e:
                         st.error(f"❌ Error processing image: {e}")
+                progress_bar.progress((i + 1) / total_images)
             st.success(f"✅ Sheet updated with OCR data.")
 
 
