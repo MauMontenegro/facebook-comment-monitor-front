@@ -206,9 +206,9 @@ with col_ocr:
                         try:
                             # Call OCR API
                             resp = requests.post(ocr_url, json={"image_url": image_url})
-                            resp.raise_for_status()
+                            #resp.raise_for_status()
                             structured = resp.json().get("structured_text", {})                       
-                        
+                            
                             # Update sheet
                             for key in required_fields:
                                 if key in structured and key in headers:
