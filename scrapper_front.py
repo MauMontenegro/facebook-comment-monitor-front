@@ -167,6 +167,7 @@ with col_display:
             st.warning("🔴 Por favor, completa la información de los campos.")
 
 
+# OCR Service
 required_fields = ["date", "address", "station", "total", "quantity"]
 with col_ocr:
     if st.button("🔄 Ejecutar OCR"):
@@ -174,7 +175,11 @@ with col_ocr:
         worksheet = sh.worksheet(worksheet_name)
         headers=worksheet.row_values(1)
         records = worksheet.get_all_records()
-        image_rows = [(i + 2, row) for i, row in enumerate(records) if row.get("has_attachment") and row["has_attachment"].strip().lower() != "no"]
+        image_rows = [
+            (i + 2, row) for i, row in enumerate(records)
+            if row.get("has_attachment") and row["has_attachment"].strip().lower() != "no"
+        and (not row.get("total") or row["total"].strip() == "")
+        ]
         if not image_rows:
             st.info("No image attachments found in the sheet.")
         else:
@@ -192,8 +197,7 @@ with col_ocr:
             progress_bar = st.progress(0)
             total_images = len(image_rows)
             for i,(row_index,row) in enumerate(image_rows):
-                image_url = row["has_attachment"]                
-
+                image_url = row["has_attachment"]
                 with st.container():                                       
                     try:
                         # Call OCR API
