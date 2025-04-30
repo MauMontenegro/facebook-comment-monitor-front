@@ -178,7 +178,7 @@ with col_ocr:
         image_rows = [
             (i + 2, row) for i, row in enumerate(records)
             if row.get("has_attachment") and row["has_attachment"].strip().lower() != "no"
-        and (not row.get("total") or row["total"].strip() == "")
+        and (not row.get("total") or str(row["total"]).strip() == "")
         ]
         if not image_rows:
             st.info("No image attachments found in the sheet.")
