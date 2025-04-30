@@ -220,8 +220,8 @@ with col_ocr:
                             error_placeholder.empty()           
                         except Exception as e:
                             error_placeholder.error(f"❌ Error processing image: {e}")
-                            for key in required_fields and key in headers:
-                                if key in headers:
+                            for key in required_fields:
+                                if key in default_fields and key in headers:
                                     col_index = headers.index(key) + 1
                                     worksheet.update_cell(row_index, col_index, str(default_fields[key]))
                             
