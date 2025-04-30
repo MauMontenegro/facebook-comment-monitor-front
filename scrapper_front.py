@@ -81,7 +81,7 @@ _,centered_fields,_=st.columns([2,4,2])
 with centered_fields:
     _,c1,c2,c3,_=st.columns([1,3,3,3,1])
     with c1:    
-        post_id = st.text_input("🔵 ID del Post")
+        post_id = st.text_input("🔵 ID del Post")        
     with c2:
         sheet_name = st.text_input("📗 Proyecto Excel")
     with c3: 
@@ -99,7 +99,8 @@ _,col_scrape, col_display,col_ocr,_ = st.columns([3.5,1.5,1.5,1.5,3.5])
 # Button to initiate scraping
 with col_scrape:
     if st.button("🔄 Ejecutar Scraper"):
-        if post_id and sheet_name and worksheet_name:  
+        if post_id and sheet_name and worksheet_name:
+            st.session_state.post_id=post_id 
             with st.spinner("⛽ Ejecutando el scraper..."):
                 try:
                     # Prepare the request data for your FastAPI endpoint
@@ -148,7 +149,8 @@ with col_scrape:
 # Button to display data from Google Sheets
 with col_display:
     if st.button("📊 Mostrar Datos"):
-        if post_id and sheet_name and worksheet_name:  
+        if post_id and sheet_name and worksheet_name:
+            st.session_state.post_id=post_id   
             with st.spinner("⛽ Cargando comentarios del post..."):
                 try:                   
                     sh = gc.open(sheet_name)
@@ -171,49 +173,53 @@ with col_display:
 required_fields = ["date", "address", "station", "total", "quantity"]
 with col_ocr:
     if st.button("🔄 Ejecutar OCR"):
-        sh = gc.open(sheet_name)        
-        worksheet = sh.worksheet(worksheet_name)
-        headers=worksheet.row_values(1)
-        records = worksheet.get_all_records()
-        image_rows = [
-            (i + 2, row) for i, row in enumerate(records)
-            if row.get("has_attachment") and row["has_attachment"].strip().lower() != "no"
-        and (not row.get("total") or str(row["total"]).strip() == "")
-        ]
-        if not image_rows:
-            st.info("No image attachments found in the sheet.")
+        if post_id and sheet_name and worksheet_name:
+            st.session_state.post_id=post_id 
+            sh = gc.open(sheet_name)        
+            worksheet = sh.worksheet(worksheet_name)
+            headers=worksheet.row_values(1)
+            records = worksheet.get_all_records()
+            image_rows = [
+                (i + 2, row) for i, row in enumerate(records)
+                if row.get("has_attachment") and row["has_attachment"].strip().lower() != "no"
+            and (not row.get("total") or str(row["total"]).strip() == "")
+            ]
+            if not image_rows:
+                st.info("No image attachments found in the sheet.")
+            else:
+                updated = False
+                for field in required_fields:
+                    if field not in headers:
+                        headers.append(field)
+                        updated = True
+
+                if updated:
+                    worksheet.update('A1', [headers])
+                
+                headers = worksheet.row_values(1)  # Refresh headers
+
+                progress_bar = st.progress(0)
+                total_images = len(image_rows)
+                for i,(row_index,row) in enumerate(image_rows):
+                    image_url = row["has_attachment"]
+                    with st.container():                                       
+                        try:
+                            # Call OCR API
+                            resp = requests.post(ocr_url, json={"image_url": image_url})
+                            resp.raise_for_status()
+                            structured = resp.json().get("structured_text", {})                       
+                        
+                            # Update sheet
+                            for key in required_fields:
+                                if key in structured and key in headers:
+                                    col_index = headers.index(key) + 1
+                                    worksheet.update_cell(row_index, col_index, str(structured[key]))            
+                        except Exception as e:
+                            st.error(f"❌ Error processing image: {e}")
+                    progress_bar.progress((i + 1) / total_images)
+                st.success(f"✅ Sheet updated with OCR data.")
         else:
-            updated = False
-            for field in required_fields:
-                if field not in headers:
-                    headers.append(field)
-                    updated = True
-
-            if updated:
-                worksheet.update('A1', [headers])
-            
-            headers = worksheet.row_values(1)  # Refresh headers
-
-            progress_bar = st.progress(0)
-            total_images = len(image_rows)
-            for i,(row_index,row) in enumerate(image_rows):
-                image_url = row["has_attachment"]
-                with st.container():                                       
-                    try:
-                        # Call OCR API
-                        resp = requests.post(ocr_url, json={"image_url": image_url})
-                        resp.raise_for_status()
-                        structured = resp.json().get("structured_text", {})                       
-                       
-                        # Update sheet
-                        for key in required_fields:
-                            if key in structured and key in headers:
-                                col_index = headers.index(key) + 1
-                                worksheet.update_cell(row_index, col_index, str(structured[key]))            
-                    except Exception as e:
-                        st.error(f"❌ Error processing image: {e}")
-                progress_bar.progress((i + 1) / total_images)
-            st.success(f"✅ Sheet updated with OCR data.")
+            st.warning("🔴 Por favor, completa la información de los campos.")
 
 
 # ==== Mostrar datos si ya se ejecutó el scraper ====
@@ -243,7 +249,12 @@ if st.session_state.scraper_ready and st.session_state.df_data is not None:
             hide_index=False,
             on_select="rerun",
             selection_mode="single-row",
-        )                   
+        )
+        comment = event.selection.rows
+        if st.session_state and len(comment) == 1:
+             row = df.iloc[comment[0]]
+             comment_url= f"https://www.facebook.com/{post_id}?comment_id={row.get("comment_id")}"
+             st.markdown(f"🔗 [Abrir Comentario]({comment_url})", unsafe_allow_html=True)        
                         
     with col2:
         st.markdown("### Imagen del Post")
