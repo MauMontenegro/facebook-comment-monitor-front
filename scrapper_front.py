@@ -202,20 +202,22 @@ with col_ocr:
                 total_images = len(image_rows)
                 for i,(row_index,row) in enumerate(image_rows):
                     image_url = row["has_attachment"]
+                    error_placeholder = st.empty()  # Create a placeholder for errors
                     with st.container():                                       
                         try:
                             # Call OCR API
                             resp = requests.post(ocr_url, json={"image_url": image_url})
                             #resp.raise_for_status()
                             structured = resp.json().get("structured_text", {})                       
-                            
+
                             # Update sheet
                             for key in required_fields:
                                 if key in structured and key in headers:
                                     col_index = headers.index(key) + 1
-                                    worksheet.update_cell(row_index, col_index, str(structured[key]))            
+                                    worksheet.update_cell(row_index, col_index, str(structured[key])) 
+                            error_placeholder.empty()           
                         except Exception as e:
-                            st.error(f"❌ Error processing image: {e}")
+                            error_placeholder.error(f"❌ Error processing image: {e}")
                     progress_bar.progress((i + 1) / total_images)
                 st.success(f"✅ Sheet updated with OCR data.")
         else:
