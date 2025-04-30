@@ -171,6 +171,8 @@ with col_display:
 
 # OCR Service
 required_fields = ["date", "address", "station", "total", "quantity"]
+default_fields = {"date":"None","address":"None","station":"None","total":0,"quantity":0}
+
 with col_ocr:
     if st.button("🔄 Ejecutar OCR"):
         if post_id and sheet_name and worksheet_name:
@@ -218,6 +220,11 @@ with col_ocr:
                             error_placeholder.empty()           
                         except Exception as e:
                             error_placeholder.error(f"❌ Error processing image: {e}")
+                            for key in required_fields and key in headers:
+                                if key in headers:
+                                    col_index = headers.index(key) + 1
+                                    worksheet.update_cell(row_index, col_index, str(default_fields[key]))
+                            
                     progress_bar.progress((i + 1) / total_images)
                 st.success(f"✅ Sheet updated with OCR data.")
         else:
