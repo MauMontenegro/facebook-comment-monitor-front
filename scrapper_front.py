@@ -175,6 +175,7 @@ error_placeholder = st.empty()  # Create a placeholder for errors
 
 with col_ocr:
     if st.button("🔄 Ejecutar OCR"):
+        error_placeholder.empty() 
         if post_id and sheet_name and worksheet_name:
             st.session_state.post_id=post_id 
             sh = gc.open(sheet_name)        
@@ -205,7 +206,8 @@ with col_ocr:
                 for i,(row_index,row) in enumerate(image_rows):
                     error_placeholder.empty() 
                     image_url = row["has_attachment"]                    
-                    with st.container():                                       
+                    with st.container():
+                        per_image_error = st.empty()                                       
                         try:
                             # Call OCR API
                             resp = requests.post(ocr_url, json={"image_url": image_url})
@@ -219,7 +221,7 @@ with col_ocr:
                                     worksheet.update_cell(row_index, col_index, str(structured[key])) 
                                       
                         except Exception as e:
-                            error_placeholder.error(f"❌ Error processing image: {e}")
+                            per_image_error.error(f"❌ Error processing image: {e}")
                             for key in required_fields:
                                 if key in default_fields and key in headers:
                                     col_index = headers.index(key) + 1
