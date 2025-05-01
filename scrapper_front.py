@@ -149,7 +149,7 @@ with col_scrape:
 # Button to display data from Google Sheets
 with col_display:
     if st.button("📊 Mostrar Datos"):
-        if post_id and sheet_name and worksheet_name:
+        if sheet_name and worksheet_name:
             st.session_state.post_id=post_id   
             with st.spinner("⛽ Cargando comentarios del post..."):
                 try:                   
@@ -168,10 +168,10 @@ with col_display:
         else:
             st.warning("🔴 Por favor, completa la información de los campos.")
 
-
 # OCR Service
 required_fields = ["date", "address", "station", "total", "quantity"]
 default_fields = {"date":"None","address":"None","station":"None","total":0,"quantity":0}
+error_placeholder = st.empty()  # Create a placeholder for errors
 
 with col_ocr:
     if st.button("🔄 Ejecutar OCR"):
@@ -203,8 +203,8 @@ with col_ocr:
                 progress_bar = st.progress(0)
                 total_images = len(image_rows)
                 for i,(row_index,row) in enumerate(image_rows):
-                    image_url = row["has_attachment"]
-                    error_placeholder = st.empty()  # Create a placeholder for errors
+                    error_placeholder.empty() 
+                    image_url = row["has_attachment"]                    
                     with st.container():                                       
                         try:
                             # Call OCR API
@@ -217,7 +217,7 @@ with col_ocr:
                                 if key in structured and key in headers:
                                     col_index = headers.index(key) + 1
                                     worksheet.update_cell(row_index, col_index, str(structured[key])) 
-                            error_placeholder.empty()           
+                                      
                         except Exception as e:
                             error_placeholder.error(f"❌ Error processing image: {e}")
                             for key in required_fields:
@@ -226,10 +226,9 @@ with col_ocr:
                                     worksheet.update_cell(row_index, col_index, str(default_fields[key]))
                             
                     progress_bar.progress((i + 1) / total_images)
-                st.success(f"✅ Sheet updated with OCR data.")
+                st.success(f"✅ Proceso de OCR completado.")
         else:
-            st.warning("🔴 Por favor, completa la información de los campos.")
-
+            st.warning("🔴 Por favor, completa la información solicitada de los campos arriba.")
 
 # ==== Mostrar datos si ya se ejecutó el scraper ====
 if st.session_state.scraper_ready and st.session_state.df_data is not None:    
