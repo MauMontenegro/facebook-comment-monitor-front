@@ -212,7 +212,7 @@ with col_ocr:
                         per_image_error = st.empty()                                       
                         try:
                             # Call OCR API
-                            resp = requests.post(ocr_url, json={"image_url": image_url})
+                            resp = requests.post(ocr_url, json={"image_url": image_url},timeout=20)
                             #resp.raise_for_status()
                             structured = resp.json().get("structured_text", {})                       
 
