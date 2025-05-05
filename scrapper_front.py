@@ -205,7 +205,7 @@ with col_ocr:
                 progress_bar = st.progress(0)
                 total_images = len(image_rows)
                 for i,(row_index,row) in enumerate(image_rows):
-                    print(row)
+                    
                     error_placeholder.empty() 
                     image_url = row["has_attachment"]                    
                     with st.container():
@@ -215,7 +215,7 @@ with col_ocr:
                             resp = requests.post(ocr_url, json={"image_url": image_url},timeout=20)
                             #resp.raise_for_status()
                             structured = resp.json().get("structured_text", {})                       
-
+                            print(structured)
                             # Update sheet
                             for key in required_fields:
                                 if key in structured and key in headers:
