@@ -204,6 +204,7 @@ with col_ocr:
                 progress_bar = st.progress(0)
                 total_images = len(image_rows)
                 for i,(row_index,row) in enumerate(image_rows):
+                    print(row)
                     error_placeholder.empty() 
                     image_url = row["has_attachment"]                    
                     with st.container():
