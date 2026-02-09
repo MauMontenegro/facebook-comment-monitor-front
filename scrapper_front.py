@@ -118,27 +118,9 @@ with col_scrape:
                     
                     if response.status_code == 200:
                         response_data = response.json()
-                        st.success(response_data.get("response", ""))    
+                        st.success("✅ "+ response_data.get("response", ""))    
                         
-                        # After successful scraping, automatically load the data
-                        if "Success" in response_data.get("response"):
-                            try:
-                                sh = gc.open(sheet_name)
-                                worksheet = sh.worksheet(worksheet_name)
-                                
-                                data = worksheet.get_all_records()
-                                for row in data:
-                                    row['user_id'] = str(row['user_id'])
-                                df = pd.DataFrame(data)
-                            
-                                st.session_state.scraper_ready = True
-                                st.session_state.df_data = df                            
-                            except Exception as e:
-                                import traceback
-                                st.error(f"❌ Error: {e}")
-                                print("🔴 Exception:", e, flush=True)
-                                traceback.print_exc()
-                                st.warning(f"✅ Scraper ejecutado, pero no se pudo cargar los datos: {e}")
+                        st.info("💡 El proceso tardará unos minutos. Puedes presionar 'Mostrar Datos' en un momento para ver el progreso.")
                     else:
                         st.error(f"❌ Error del API: {response.status_code} - {response.text}")
                 except Exception as e:
